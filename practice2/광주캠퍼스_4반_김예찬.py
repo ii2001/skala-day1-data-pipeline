@@ -70,9 +70,9 @@ def safe_load_csv(file_path):
         # 사용자가 원인을 바로 확인할 수 있도록 누락된 경로를 함께 기록한다.
         logger.error("CSV 파일을 찾을 수 없습니다: %s", file_path)
         return None
-    except (csv.Error, OSError, UnicodeError) as exc:
-        # CSV 파싱, 권한, 인코딩 등 파일 읽기 과정의 오류를 안전하게 처리한다.
-        logger.error("CSV 파일을 읽는 중 오류가 발생했습니다: %s", exc)
+    except (csv.Error, OSError, UnicodeError):
+        # 예상하지 못한 읽기 오류는 원인 추적을 위해 traceback까지 기록한다.
+        logger.exception("CSV 파일을 읽는 중 오류가 발생했습니다.")
         return None
     finally:
         print("로딩 종료")
@@ -148,8 +148,8 @@ def main():
     try:
         save_valid_records(valid, VALID_CSV_PATH)
         save_validation_errors(errors, ERROR_JSON_PATH)
-    except (csv.Error, OSError, UnicodeError) as exc:
-        logger.error("결과 파일을 저장하는 중 오류가 발생했습니다: %s", exc)
+    except (csv.Error, OSError, UnicodeError):
+        logger.exception("결과 파일을 저장하는 중 오류가 발생했습니다.")
         return 1
 
     reloaded = safe_load_csv(VALID_CSV_PATH)
