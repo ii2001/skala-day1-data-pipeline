@@ -93,9 +93,10 @@ def validate_records(raw_data):
         try:
             valid.append(SalesRecord.model_validate(row))
         except ValidationError as exc:
-            print(f"{index}번째 행 검증 오류:\n{exc}")
+            logger.warning("%d번째 행 검증 오류:\n%s", index, exc)
             errors.append({"row": row, "error": str(exc)})
 
+    logger.info("검증 완료: 정상 %d건, 오류 %d건", len(valid), len(errors))
     return valid, errors
 
 
@@ -112,6 +113,7 @@ def save_valid_records(records, file_path):
         writer = csv.DictWriter(file, fieldnames=CSV_FIELDS)
         writer.writeheader()
         writer.writerows(record.model_dump() for record in records)
+    logger.info("정상 레코드 CSV를 저장했습니다: %s", file_path)
 
 
 def save_validation_errors(errors, file_path):
@@ -125,6 +127,7 @@ def save_validation_errors(errors, file_path):
     """
     with file_path.open("w", encoding="utf-8") as file:
         json.dump(errors, file, ensure_ascii=False, indent=2)
+    logger.info("검증 오류 JSON을 저장했습니다: %s", file_path)
 
 
 def main():
