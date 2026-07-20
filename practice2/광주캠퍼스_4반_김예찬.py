@@ -27,7 +27,7 @@ import csv
 import json
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TypeAlias
 
 from pydantic import BaseModel, Field, StringConstraints, ValidationError
 
@@ -41,7 +41,11 @@ CSV_FIELDS = ["month", "region", "amount", "category"]
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+CsvRow: TypeAlias = dict[str, str]
+ValidationIssue: TypeAlias = dict[str, CsvRow | str]
+NonEmptyString: TypeAlias = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1)
+]
 
 
 class SalesRecord(BaseModel):
@@ -53,7 +57,7 @@ class SalesRecord(BaseModel):
     category: str | None = None
 
 
-def safe_load_csv(file_path):
+def safe_load_csv(file_path: str | Path) -> list[CsvRow] | None:
     """CSV 파일을 안전하게 읽어 딕셔너리 목록으로 반환한다.
 
     매개변수:
@@ -78,7 +82,9 @@ def safe_load_csv(file_path):
         print("로딩 종료")
 
 
-def validate_records(raw_data):
+def validate_records(
+    raw_data: list[CsvRow],
+) -> tuple[list[SalesRecord], list[ValidationIssue]]:
     """원본 CSV 행을 SalesRecord로 검증하여 정상과 오류 목록으로 분리한다.
 
     매개변수:
@@ -86,8 +92,8 @@ def validate_records(raw_data):
     반환값:
         tuple[list, list]: 정상 SalesRecord 목록과 원본 행·오류 내용 목록.
     """
-    valid = []
-    errors = []
+    valid: list[SalesRecord] = []
+    errors: list[ValidationIssue] = []
 
     for index, row in enumerate(raw_data, start=1):
         try:
@@ -100,7 +106,7 @@ def validate_records(raw_data):
     return valid, errors
 
 
-def save_valid_records(records, file_path):
+def save_valid_records(records: list[SalesRecord], file_path: Path) -> None:
     """검증된 SalesRecord 목록을 model_dump 결과를 이용해 CSV로 저장한다.
 
     매개변수:
@@ -116,7 +122,7 @@ def save_valid_records(records, file_path):
     logger.info("정상 레코드 CSV를 저장했습니다: %s", file_path)
 
 
-def save_validation_errors(errors, file_path):
+def save_validation_errors(errors: list[ValidationIssue], file_path: Path) -> None:
     """검증 오류와 원본 행을 사람이 읽기 쉬운 JSON으로 저장한다.
 
     매개변수:
@@ -130,7 +136,7 @@ def save_validation_errors(errors, file_path):
     logger.info("검증 오류 JSON을 저장했습니다: %s", file_path)
 
 
-def main():
+def main() -> int:
     """CSV 로딩, 검증, 결과 저장과 재로딩을 순서대로 실행한다.
 
     매개변수:
