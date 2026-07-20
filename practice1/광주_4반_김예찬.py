@@ -13,13 +13,14 @@
 
 주요 구현 내용:
     1. 표준 JSON 데이터를 ``json.load``로 안전하게 읽고 형식 오류를 처리한다.
-    2. 전체 자료형, 거래별 필수 키, 문자열 필드와 amount의 숫자 여부를 검증한다.
+    2. 전체 자료형, 필수 키, 문자열 필드와 amount의 유효 범위를 검증한다.
     3. 컴프리헨션, Counter, defaultdict를 사용해 거래와 매출을 조건별로 집계한다.
     4. 리스트와 제너레이터의 메모리 크기를 비교하고 월별·카테고리별 Top 3를 구한다.
     5. 주요 집계와 정렬 결과는 assert로 검증하며 오류 원인은 한국어로 출력한다.
 """
 
 import json
+import math
 import sys
 from collections import Counter, defaultdict
 from numbers import Real
@@ -69,8 +70,40 @@ def load_sales(file_path):
     return sales
 
 
+def validate_sale(sale, index):
+    """거래 한 건의 자료형과 필수 값을 검사한다.
+
+    매개변수:
+        sale: 검사할 거래 데이터 객체.
+        index (int): 오류 메시지에 표시할 거래 순번.
+    반환값:
+        None: 문제가 없으면 반환하며, 잘못된 데이터는 SalesDataError를 발생시킨다.
+    """
+    if not isinstance(sale, dict):
+        raise SalesDataError(f"{index}번째 거래는 dict 형식이어야 합니다.")
+
+    missing_keys = REQUIRED_KEYS - sale.keys()
+    if missing_keys:
+        missing = ", ".join(sorted(missing_keys))
+        raise SalesDataError(f"{index}번째 거래에 필수 키가 없습니다: {missing}")
+
+    for key in ("region", "category", "month"):
+        if not isinstance(sale[key], str) or not sale[key].strip():
+            raise SalesDataError(
+                f"{index}번째 거래의 {key} 값은 비어 있지 않은 문자열이어야 합니다."
+            )
+
+    amount = sale["amount"]
+    if isinstance(amount, bool) or not isinstance(amount, Real):
+        raise SalesDataError(f"{index}번째 거래의 amount는 숫자여야 합니다.")
+    if isinstance(amount, float) and not math.isfinite(amount):
+        raise SalesDataError(f"{index}번째 거래의 amount는 유한한 숫자여야 합니다.")
+    if amount < 0:
+        raise SalesDataError(f"{index}번째 거래의 amount는 0 이상이어야 합니다.")
+
+
 def validate_sales(sales):
-    """판매 데이터의 전체 구조와 각 거래의 필수 값을 검사한다.
+    """판매 데이터의 전체 구조를 확인하고 각 거래 검증을 요청한다.
 
     매개변수:
         sales: 검사할 판매 데이터 객체.
@@ -79,24 +112,11 @@ def validate_sales(sales):
     """
     if not isinstance(sales, list):
         raise SalesDataError("sales 데이터는 list 형식이어야 합니다.")
+    if not sales:
+        raise SalesDataError("sales 데이터에 거래가 한 건 이상 있어야 합니다.")
 
     for index, sale in enumerate(sales, start=1):
-        if not isinstance(sale, dict):
-            raise SalesDataError(f"{index}번째 거래는 dict 형식이어야 합니다.")
-
-        missing_keys = REQUIRED_KEYS - sale.keys()
-        if missing_keys:
-            missing = ", ".join(sorted(missing_keys))
-            raise SalesDataError(f"{index}번째 거래에 필수 키가 없습니다: {missing}")
-
-        for key in ("region", "category", "month"):
-            if not isinstance(sale[key], str) or not sale[key].strip():
-                raise SalesDataError(
-                    f"{index}번째 거래의 {key} 값은 비어 있지 않은 문자열이어야 합니다."
-                )
-
-        if isinstance(sale["amount"], bool) or not isinstance(sale["amount"], Real):
-            raise SalesDataError(f"{index}번째 거래의 amount는 숫자여야 합니다.")
+        validate_sale(sale, index)
 
 
 def high_amount_generator(sales):
