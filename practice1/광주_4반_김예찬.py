@@ -179,8 +179,9 @@ def main():
         key = (sale["month"], sale["category"])
         monthly_category_totals[key] += sale["amount"]
 
+    # 키를 정렬하며 일반 dict로 변환해 출력 순서를 월·카테고리 순으로 고정한다.
     monthly_category_sales = {
-        key: total for key, total in monthly_category_totals.items()
+        key: monthly_category_totals[key] for key in sorted(monthly_category_totals)
     }
     assert sum(monthly_category_sales.values()) == sum(
         sale["amount"] for sale in sales
