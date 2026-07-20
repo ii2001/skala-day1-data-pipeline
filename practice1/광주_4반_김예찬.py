@@ -8,18 +8,18 @@
     제너레이터를 이용해 조건별 필터링과 다양한 매출 집계를 수행한다.
 
 입력 파일:
-    이 프로그램과 같은 디렉터리의 ``Python_Practice1_Data.json``을 사용한다.
-    파일 확장자는 json이지만 실제 내용은 ``sales = [...]`` 형태의 Python 데이터이다.
+    저장소의 ``practice2/Python_Practice2_Data.json``을 사용한다.
+    해당 파일은 거래 딕셔너리 100개가 담긴 표준 JSON 리스트이다.
 
 주요 구현 내용:
-    1. ``sales =`` 오른쪽의 리스트만 분리하고 ``ast.literal_eval``로 안전하게 파싱한다.
+    1. 표준 JSON 데이터를 ``json.load``로 안전하게 읽고 형식 오류를 처리한다.
     2. 전체 자료형, 거래별 필수 키, 문자열 필드와 amount의 숫자 여부를 검증한다.
     3. 컴프리헨션, Counter, defaultdict를 사용해 거래와 매출을 조건별로 집계한다.
     4. 리스트와 제너레이터의 메모리 크기를 비교하고 월별·카테고리별 Top 3를 구한다.
     5. 주요 집계와 정렬 결과는 assert로 검증하며 오류 원인은 한국어로 출력한다.
 """
 
-import ast
+import json
 import sys
 from collections import Counter, defaultdict
 from numbers import Real
@@ -27,7 +27,9 @@ from pathlib import Path
 from pprint import pprint
 
 
-DATA_PATH = Path(__file__).with_name("Python_Practice1_Data.json")
+DATA_PATH = (
+    Path(__file__).parent.parent / "practice2" / "Python_Practice2_Data.json"
+)
 REQUIRED_KEYS = {"region", "category", "amount", "month"}
 EXPECTED_REGION_TOTALS = {
     "서울": 20060,
@@ -54,23 +56,14 @@ def load_sales(file_path):
         list: 검증을 통과한 거래 딕셔너리 목록.
     """
     try:
-        content = file_path.read_text(encoding="utf-8").strip()
+        with file_path.open(encoding="utf-8") as file:
+            sales = json.load(file)
     except FileNotFoundError as exc:
         raise SalesDataError(f"데이터 파일을 찾을 수 없습니다: {file_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise SalesDataError(f"JSON 형식이 올바르지 않습니다: {exc}") from exc
     except (OSError, UnicodeError) as exc:
         raise SalesDataError(f"데이터 파일을 읽을 수 없습니다: {exc}") from exc
-
-    if not content:
-        raise SalesDataError("데이터 파일이 비어 있습니다.")
-
-    variable_name, separator, data_text = content.partition("=")
-    if not separator or variable_name.strip() != "sales":
-        raise SalesDataError("파일은 'sales = [...]' 형식이어야 합니다.")
-
-    try:
-        sales = ast.literal_eval(data_text.strip())
-    except (SyntaxError, ValueError) as exc:
-        raise SalesDataError(f"판매 데이터 형식이 올바르지 않습니다: {exc}") from exc
 
     validate_sales(sales)
     return sales
