@@ -76,8 +76,8 @@ def safe_load_json(file_path: str | Path) -> list[RawRecord] | None:
     except FileNotFoundError:
         logger.error("JSON 파일을 찾을 수 없습니다: %s", file_path)
         return None
-    except json.JSONDecodeError as exc:
-        logger.error("JSON 형식이 올바르지 않습니다: %s", exc)
+    except json.JSONDecodeError:
+        logger.exception("JSON 형식이 올바르지 않습니다.")
         return None
     except (OSError, UnicodeError):
         logger.exception("JSON 파일을 읽는 중 오류가 발생했습니다.")
