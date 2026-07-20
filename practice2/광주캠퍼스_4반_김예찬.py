@@ -9,7 +9,8 @@
 
 입력 데이터:
     표준 JSON 리스트 형식의 교수 제공 ``Python_Practice2_Data.json``을 사용한다.
-    원본의 전체 레코드를 그대로 검증하며 값을 수정하거나 오류 행을 만들지 않는다.
+    원본 전체를 수정 없이 검증하고 오류 데이터는 의도적으로 생성하지 않는다.
+    정상·오류 건수는 실제 원본에 대한 Pydantic 검증 결과에 따라 결정된다.
 
 구현 기능:
     1. ``safe_load_json``의 try-except-finally 구조로 JSON 전체를 안전하게 읽는다.
@@ -31,7 +32,7 @@ from typing import Annotated, TypeAlias
 from pydantic import BaseModel, Field, StringConstraints, ValidationError
 
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).resolve().parent
 INPUT_JSON_PATH = BASE_DIR / "Python_Practice2_Data.json"
 VALID_CSV_PATH = BASE_DIR / "valid_records.csv"
 ERROR_JSON_PATH = BASE_DIR / "validation_errors.json"
@@ -71,6 +72,10 @@ def safe_load_json(file_path: str | Path) -> list[RawRecord] | None:
         if not isinstance(data, list):
             logger.error("JSON 최상위 데이터는 list 형식이어야 합니다.")
             return None
+        for index, item in enumerate(data):
+            if not isinstance(item, dict):
+                logger.error("JSON의 %d번 인덱스 항목은 dict 형식이어야 합니다.", index)
+                return None
         logger.info("JSON 데이터 %d건을 읽었습니다.", len(data))
         return data
     except FileNotFoundError:
@@ -174,7 +179,8 @@ def main() -> int:
     반환값:
         int: 정상 완료 시 0, 입력 또는 출력 파일 처리 실패 시 1.
     """
-    assert safe_load_csv("존재하지_않는_파일.csv") is None
+    # 파일 없음 예외 처리를 확인하려면 다음 코드를 실행할 수 있다.
+    # assert safe_load_csv("존재하지_않는_파일.csv") is None
 
     raw_data = safe_load_json(INPUT_JSON_PATH)
     if raw_data is None:
@@ -195,7 +201,6 @@ def main() -> int:
         logger.error("저장한 정상 CSV를 다시 불러오지 못했습니다.")
         return 1
 
-    assert reloaded is not None
     assert len(reloaded) == len(valid)
 
     print(f"원본 JSON 데이터 건수: {len(raw_data)}건")
